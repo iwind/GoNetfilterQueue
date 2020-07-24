@@ -103,7 +103,7 @@ const (
 )
 
 var theTable = make(map[uint32]*chan NFPacket, 0)
-var theTabeLock sync.RWMutex
+var theTableLock sync.RWMutex
 
 //Create and bind to queue specified by queueId
 func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*NFQueue, error) {
@@ -133,9 +133,9 @@ func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 
 	nfq.packets = make(chan NFPacket)
 	nfq.idx = uint32(time.Now().UnixNano())
-	theTabeLock.Lock()
+	theTableLock.Lock()
 	theTable[nfq.idx] = &nfq.packets
-	theTabeLock.Unlock()
+	theTableLock.Unlock()
 	if nfq.qh, err = C.CreateQueue(nfq.h, C.u_int16_t(queueId), C.u_int32_t(nfq.idx)); err != nil || nfq.qh == nil {
 		C.nfq_close(nfq.h)
 		return nil, fmt.Errorf("Error binding to queue: %v\n", err)
@@ -168,9 +168,9 @@ func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 func (nfq *NFQueue) Close() {
 	C.nfq_destroy_queue(nfq.qh)
 	C.nfq_close(nfq.h)
-	theTabeLock.Lock()
+	theTableLock.Lock()
 	delete(theTable, nfq.idx)
-	theTabeLock.Unlock()
+	theTableLock.Unlock()
 }
 
 //Get the channel for packets
@@ -200,9 +200,9 @@ func go_callback(queueId C.int, data *C.uchar, length C.int, idx uint32, vc *Ver
 		Packet:         packet,
 	}
 
-	theTabeLock.RLock()
+	theTableLock.RLock()
 	cb, ok := theTable[idx]
-	theTabeLock.RUnlock()
+	theTableLock.RUnlock()
 	if !ok {
 		log.Printf("Accept, unexpectedly due to bad idx=%d", idx)
 		(*vc).verdict = C.uint(NF_ACCEPT)
