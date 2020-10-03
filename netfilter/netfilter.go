@@ -131,7 +131,7 @@ func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 		return nil, fmt.Errorf("Error binding to AF_INET6 protocol family: %v\n", err)
 	}
 
-	nfq.packets = make(chan NFPacket)
+	nfq.packets = make(chan NFPacket, 256)
 	nfq.idx = uint32(time.Now().UnixNano())
 	theTableLock.Lock()
 	theTable[nfq.idx] = &nfq.packets
@@ -204,7 +204,7 @@ func go_callback(queueId C.int, data *C.uchar, length C.int, idx uint32, vc *Ver
 	cb, ok := theTable[idx]
 	theTableLock.RUnlock()
 	if !ok {
-		log.Printf("Accept, unexpectedly due to bad idx=%d", idx)
+		log.Printf("[netfilter]accept: unexpectedly due to bad idx=%d", idx)
 		(*vc).verdict = C.uint(NF_ACCEPT)
 		(*vc).data = nil
 		(*vc).length = 0
@@ -225,7 +225,7 @@ func go_callback(queueId C.int, data *C.uchar, length C.int, idx uint32, vc *Ver
 		}
 
 	default:
-		log.Printf("Accepting, unexpectedly due to no recv, idx=%d", idx)
+		log.Printf("[netfilter]accept: unexpectedly due to no recv, idx=%d", idx)
 		(*vc).verdict = C.uint(NF_ACCEPT)
 		(*vc).data = nil
 		(*vc).length = 0
